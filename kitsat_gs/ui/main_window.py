@@ -24,6 +24,8 @@ from kitsat_gs.core.packet_dispatcher import PacketDispatcher
 from kitsat_gs.ui.terminal_widget import TerminalWidget
 from kitsat_gs.ui.housekeeping_widget import HousekeepingWidget
 from kitsat_gs.ui.command_builder_widget import CommandBuilderWidget
+from kitsat_gs.ui.map_widget import MapWidget
+from kitsat_gs.ui.orbit_widget import OrbitWidget
 
 
 class _SidebarButton(QPushButton):
@@ -111,6 +113,7 @@ class MainWindow(QMainWindow):
         add_nav("Scripts")
         add_nav("Firmware")
         add_nav("Settings")
+        add_nav("About")
 
         layout.addStretch()
 
@@ -148,9 +151,16 @@ class MainWindow(QMainWindow):
         self._cmd_builder = CommandBuilderWidget(self._bridge)
         self._stack.addWidget(self._cmd_builder)
 
-        # Placeholder pages for phases 3–6
+        # Phase 3: Map + Orbit
+        self._map = MapWidget()
+        self._stack.addWidget(self._map)
+
+        self._orbit = OrbitWidget()
+        self._stack.addWidget(self._orbit)
+
+        # Placeholder pages for phases 4–6
         placeholder_labels = [
-            "Map", "Orbit", "Images", "Scripts", "Firmware", "Settings",
+            "Images", "Scripts", "Firmware", "Settings",
         ]
         for label in placeholder_labels:
             ph = QLabel(f"{label} — coming in a future phase")

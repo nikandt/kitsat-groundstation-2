@@ -20,6 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "PySide6>=6.6",
+    "PySide6-WebEngine>=6.6",
     "kitsat>=1.2.15",
     "sgp4>=2.22",
     "pyqtgraph>=0.13",
