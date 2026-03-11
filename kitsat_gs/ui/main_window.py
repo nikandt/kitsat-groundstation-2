@@ -2,7 +2,8 @@
 MainWindow — application shell with a sidebar for navigation and a
 central stacked widget for each panel.
 
-Phase 1 includes: Terminal panel only.
+Phase 1: Terminal
+Phase 2: Housekeeping + Command Builder
 Remaining panels will be added in subsequent phases.
 """
 
@@ -18,7 +19,11 @@ from PySide6.QtGui import QFont
 from loguru import logger
 
 from kitsat_gs.core.modem_bridge import ModemBridge
+from kitsat_gs.core.telemetry_store import TelemetryStore
+from kitsat_gs.core.packet_dispatcher import PacketDispatcher
 from kitsat_gs.ui.terminal_widget import TerminalWidget
+from kitsat_gs.ui.housekeeping_widget import HousekeepingWidget
+from kitsat_gs.ui.command_builder_widget import CommandBuilderWidget
 
 
 class _SidebarButton(QPushButton):
@@ -40,6 +45,10 @@ class MainWindow(QMainWindow):
         self._bridge.connected.connect(self._on_connected)
         self._bridge.disconnected.connect(self._on_disconnected)
         self._bridge.error.connect(self._on_error)
+
+        self._store = TelemetryStore(parent=self)
+        self._dispatcher = PacketDispatcher(self._store, parent=self)
+        self._bridge.message_received.connect(self._dispatcher.dispatch)
 
         self._build_ui()
         self._refresh_ports()
@@ -95,6 +104,7 @@ class MainWindow(QMainWindow):
 
         self._btn_terminal = add_nav("Terminal")
         add_nav("Housekeeping")
+        add_nav("Cmd Builder")
         add_nav("Map")
         add_nav("Orbit")
         add_nav("Images")
@@ -127,14 +137,20 @@ class MainWindow(QMainWindow):
         self._stack = QStackedWidget()
         layout.addWidget(self._stack)
 
-        # Phase 1: Terminal page
+        # Phase 1: Terminal
         self._terminal = TerminalWidget(self._bridge)
         self._stack.addWidget(self._terminal)
 
-        # Placeholder pages for phases 2–6
+        # Phase 2: Housekeeping + Command Builder
+        self._housekeeping = HousekeepingWidget(self._store)
+        self._stack.addWidget(self._housekeeping)
+
+        self._cmd_builder = CommandBuilderWidget(self._bridge)
+        self._stack.addWidget(self._cmd_builder)
+
+        # Placeholder pages for phases 3–6
         placeholder_labels = [
-            "Housekeeping", "Map", "Orbit", "Images",
-            "Scripts", "Firmware", "Settings",
+            "Map", "Orbit", "Images", "Scripts", "Firmware", "Settings",
         ]
         for label in placeholder_labels:
             ph = QLabel(f"{label} — coming in a future phase")

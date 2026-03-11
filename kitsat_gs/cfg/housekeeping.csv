@@ -1,0 +1,12 @@
+Type,Subtype,Subvalues,Units,"Conversion factor, multiplication","Conversion factor, offset",TargetID,CommandID
+Attitude,Magnetometer,x|y|z,Gs,1|1|1,0|0|0,5,1
+Attitude,Gyroscope,x|y|z,deg/s,1|1|1,0|0|0,5,5
+Attitude,Acceleration,x|y|z,m/s²,9.81|9.81|9.81,0|0|0,5,9
+Environment,Pressure,,hPa,1,0,4,2
+Environment,Temperature,,C,1,0,4,1
+Power,Battery Voltage,,V,1,0,8,1
+Power,Solar Panel Voltage,X+|X-|Y-|Y+,V,1|1|1|1,0|0|0|0,8,2
+Power,Solar Panel Current,X|Y,mA,1|1,0|0,8,3
+GPS,Coordinates,Lat|Lon,deg,1|1,0|0,3,2
+GPS,Velocity,,m/s,0.514444,0,3,3
+GPS,Altitude,,m,1,0,3,4

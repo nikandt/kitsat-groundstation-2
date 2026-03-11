@@ -34,6 +34,12 @@ kitsat-gs = "kitsat_gs.__main__:main"
 Homepage = "https://github.com/nikandt/kitsat-groundstation-GUI-2"
 "Bug Tracker" = "https://github.com/nikandt/kitsat-groundstation-GUI-2/issues"
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-qt>=4",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["kitsat_gs*"]
