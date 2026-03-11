@@ -160,6 +160,34 @@ QStatusBar {
     font-size: 12px;
 }
 
+/* Image viewer */
+QGraphicsView#imageViewer {
+    background-color: #000000;
+    border: 1px solid #333333;
+}
+
+QListWidget#thumbList {
+    background-color: #1a1a1a;
+    border: 1px solid #333333;
+    border-radius: 4px;
+}
+
+QListWidget#thumbList::item {
+    color: #aaaaaa;
+    font-size: 10px;
+    border-radius: 4px;
+    padding: 2px;
+}
+
+QListWidget#thumbList::item:selected {
+    background-color: #2a4a3e;
+    color: #00da96;
+}
+
+QListWidget#thumbList::item:hover {
+    background-color: #2e2e2e;
+}
+
 /* Scrollbars */
 QScrollBar:vertical {
     background-color: #1e1e1e;

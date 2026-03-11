@@ -26,6 +26,8 @@ from kitsat_gs.ui.housekeeping_widget import HousekeepingWidget
 from kitsat_gs.ui.command_builder_widget import CommandBuilderWidget
 from kitsat_gs.ui.map_widget import MapWidget
 from kitsat_gs.ui.orbit_widget import OrbitWidget
+from kitsat_gs.ui.image_widget import ImageWidget
+from kitsat_gs.core.image_manager import ImageManager
 
 
 class _SidebarButton(QPushButton):
@@ -51,6 +53,8 @@ class MainWindow(QMainWindow):
         self._store = TelemetryStore(parent=self)
         self._dispatcher = PacketDispatcher(self._store, parent=self)
         self._bridge.message_received.connect(self._dispatcher.dispatch)
+
+        self._image_manager = ImageManager(parent=self)
 
         self._build_ui()
         self._refresh_ports()
@@ -158,9 +162,13 @@ class MainWindow(QMainWindow):
         self._orbit = OrbitWidget()
         self._stack.addWidget(self._orbit)
 
-        # Placeholder pages for phases 4–6
+        # Phase 4: Images
+        self._images = ImageWidget(self._image_manager)
+        self._stack.addWidget(self._images)
+
+        # Placeholder pages for phases 5–6
         placeholder_labels = [
-            "Images", "Scripts", "Firmware", "Settings",
+            "Scripts", "Firmware", "Settings",
         ]
         for label in placeholder_labels:
             ph = QLabel(f"{label} — coming in a future phase")
