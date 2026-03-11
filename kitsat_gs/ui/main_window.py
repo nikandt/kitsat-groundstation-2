@@ -28,6 +28,8 @@ from kitsat_gs.ui.map_widget import MapWidget
 from kitsat_gs.ui.orbit_widget import OrbitWidget
 from kitsat_gs.ui.image_widget import ImageWidget
 from kitsat_gs.core.image_manager import ImageManager
+from kitsat_gs.ui.script_widget import ScriptWidget
+from kitsat_gs.ui.firmware_widget import FirmwareWidget
 
 
 class _SidebarButton(QPushButton):
@@ -166,10 +168,15 @@ class MainWindow(QMainWindow):
         self._images = ImageWidget(self._image_manager)
         self._stack.addWidget(self._images)
 
-        # Placeholder pages for phases 5–6
-        placeholder_labels = [
-            "Scripts", "Firmware", "Settings",
-        ]
+        # Phase 5: Scripts + Firmware
+        self._scripts = ScriptWidget(self._bridge)
+        self._stack.addWidget(self._scripts)
+
+        self._firmware = FirmwareWidget()
+        self._stack.addWidget(self._firmware)
+
+        # Placeholder for phase 6
+        placeholder_labels = ["Settings"]
         for label in placeholder_labels:
             ph = QLabel(f"{label} — coming in a future phase")
             ph.setAlignment(Qt.AlignCenter)
