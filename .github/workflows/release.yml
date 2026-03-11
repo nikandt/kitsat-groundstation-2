@@ -1,0 +1,163 @@
+name: Build & Release
+
+# Triggers on version tags:  git tag v2.1.0 && git push origin v2.1.0
+# Also triggerable manually from Actions tab for testing.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create GitHub Releases
+
+jobs:
+  # ------------------------------------------------------------------ #
+  #  Windows — produces KitsatGS-windows.zip                            #
+  # ------------------------------------------------------------------ #
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller packaging/build_windows.spec
+
+      - name: Zip output
+        shell: pwsh
+        run: Compress-Archive -Path dist\KitsatGS -DestinationPath KitsatGS-windows.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: KitsatGS-windows.zip
+
+  # ------------------------------------------------------------------ #
+  #  Linux — produces KitsatGS-linux.tar.gz                             #
+  # ------------------------------------------------------------------ #
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system libraries (required by PySide6)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 \
+            libgl1 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-xinerama0 \
+            libxcb-xfixes0 \
+            libxkbcommon-x11-0 \
+            libnss3 \
+            libatk-bridge2.0-0 \
+            libcups2 \
+            libdrm2 \
+            libgbm1
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller packaging/build_linux.spec
+
+      - name: Create tar.gz
+        run: tar -czf KitsatGS-linux.tar.gz -C dist KitsatGS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: KitsatGS-linux.tar.gz
+
+  # ------------------------------------------------------------------ #
+  #  macOS — produces KitsatGS-macos.dmg                                #
+  #  Note: unsigned — users right-click → Open → "Open Anyway"          #
+  # ------------------------------------------------------------------ #
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: pyinstaller packaging/build_macos.spec
+
+      - name: Create DMG
+        run: |
+          hdiutil create \
+            -volname "KitsatGS" \
+            -srcfolder dist/KitsatGS.app \
+            -ov \
+            -format UDZO \
+            KitsatGS-macos.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: KitsatGS-macos.dmg
+
+  # ------------------------------------------------------------------ #
+  #  Release — collects all 3 artifacts and publishes a GitHub Release  #
+  # ------------------------------------------------------------------ #
+  release:
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts   # downloads into artifacts/windows/, artifacts/linux/, artifacts/macos/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "KitsatGS ${{ github.ref_name }}"
+          body: |
+            ## KitsatGS ${{ github.ref_name }}
+
+            ### Download
+            | Platform | File |
+            |----------|------|
+            | Windows 10/11 | `KitsatGS-windows.zip` — extract and run `KitsatGS.exe` |
+            | Linux | `KitsatGS-linux.tar.gz` — extract and run `KitsatGS/KitsatGS` |
+            | macOS 11+ | `KitsatGS-macos.dmg` — open, drag to Applications |
+
+            > **macOS note:** The app is not code-signed. Right-click → Open → "Open Anyway" to bypass Gatekeeper on first launch.
+
+            ### Install via pip (Python users)
+            ```
+            pip install kitsat-gs==${{ github.ref_name }}
+            ```
+          files: |
+            artifacts/windows/KitsatGS-windows.zip
+            artifacts/linux/KitsatGS-linux.tar.gz
+            artifacts/macos/KitsatGS-macos.dmg
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
