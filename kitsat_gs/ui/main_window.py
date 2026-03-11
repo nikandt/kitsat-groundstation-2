@@ -1,10 +1,12 @@
 """
-MainWindow — application shell with a sidebar for navigation and a
-central stacked widget for each panel.
+MainWindow — application shell.
 
 Phase 1: Terminal
 Phase 2: Housekeeping + Command Builder
-Remaining panels will be added in subsequent phases.
+Phase 3: Map + Orbit
+Phase 4: Images
+Phase 5: Scripts + Firmware
+Phase 6: Settings + About  (geometry/state persistence, theme switching)
 """
 
 from __future__ import annotations
@@ -12,24 +14,27 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QPushButton, QStackedWidget, QLabel, QStatusBar,
-    QComboBox, QSizePolicy,
+    QComboBox, QApplication,
 )
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QCloseEvent
 from loguru import logger
 
+from kitsat_gs.config import settings
 from kitsat_gs.core.modem_bridge import ModemBridge
 from kitsat_gs.core.telemetry_store import TelemetryStore
 from kitsat_gs.core.packet_dispatcher import PacketDispatcher
+from kitsat_gs.core.image_manager import ImageManager
 from kitsat_gs.ui.terminal_widget import TerminalWidget
 from kitsat_gs.ui.housekeeping_widget import HousekeepingWidget
 from kitsat_gs.ui.command_builder_widget import CommandBuilderWidget
 from kitsat_gs.ui.map_widget import MapWidget
 from kitsat_gs.ui.orbit_widget import OrbitWidget
 from kitsat_gs.ui.image_widget import ImageWidget
-from kitsat_gs.core.image_manager import ImageManager
 from kitsat_gs.ui.script_widget import ScriptWidget
 from kitsat_gs.ui.firmware_widget import FirmwareWidget
+from kitsat_gs.ui.settings_widget import SettingsWidget
+from kitsat_gs.ui.about_widget import AboutWidget
 
 
 class _SidebarButton(QPushButton):
@@ -42,8 +47,9 @@ class _SidebarButton(QPushButton):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(self, app: QApplication) -> None:
         super().__init__()
+        self._app = app
         self.setWindowTitle("Kitsat GS v2")
         self.resize(1200, 760)
 
@@ -59,7 +65,15 @@ class MainWindow(QMainWindow):
         self._image_manager = ImageManager(parent=self)
 
         self._build_ui()
+        self._restore_geometry()
         self._refresh_ports()
+
+        # Pre-fill port from settings
+        last = settings.last_port()
+        if last:
+            idx = self._port_combo.findText(last)
+            if idx >= 0:
+                self._port_combo.setCurrentIndex(idx)
 
     # ------------------------------------------------------------------
     # UI construction
@@ -87,7 +101,6 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(4, 12, 4, 12)
         layout.setSpacing(4)
 
-        # App title
         title = QLabel("KITSAT GS")
         title.setAlignment(Qt.AlignCenter)
         font = QFont()
@@ -98,7 +111,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(title)
         layout.addSpacing(16)
 
-        # Navigation buttons
         self._nav_buttons: list[_SidebarButton] = []
         self._stack_pages: list[str] = []
 
@@ -123,7 +135,6 @@ class MainWindow(QMainWindow):
 
         layout.addStretch()
 
-        # Version label
         version = QLabel("v2.0.0")
         version.setAlignment(Qt.AlignCenter)
         version.setObjectName("versionLabel")
@@ -139,49 +150,45 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Connection bar
         layout.addWidget(self._build_connection_bar())
 
-        # Page stack
         self._stack = QStackedWidget()
         layout.addWidget(self._stack)
 
-        # Phase 1: Terminal
+        # Phase 1
         self._terminal = TerminalWidget(self._bridge)
         self._stack.addWidget(self._terminal)
 
-        # Phase 2: Housekeeping + Command Builder
+        # Phase 2
         self._housekeeping = HousekeepingWidget(self._store)
         self._stack.addWidget(self._housekeeping)
-
         self._cmd_builder = CommandBuilderWidget(self._bridge)
         self._stack.addWidget(self._cmd_builder)
 
-        # Phase 3: Map + Orbit
+        # Phase 3
         self._map = MapWidget()
         self._stack.addWidget(self._map)
-
         self._orbit = OrbitWidget()
         self._stack.addWidget(self._orbit)
 
-        # Phase 4: Images
+        # Phase 4
         self._images = ImageWidget(self._image_manager)
         self._stack.addWidget(self._images)
 
-        # Phase 5: Scripts + Firmware
+        # Phase 5
         self._scripts = ScriptWidget(self._bridge)
         self._stack.addWidget(self._scripts)
-
         self._firmware = FirmwareWidget()
         self._stack.addWidget(self._firmware)
 
-        # Placeholder for phase 6
-        placeholder_labels = ["Settings"]
-        for label in placeholder_labels:
-            ph = QLabel(f"{label} — coming in a future phase")
-            ph.setAlignment(Qt.AlignCenter)
-            ph.setObjectName("placeholder")
-            self._stack.addWidget(ph)
+        # Phase 6
+        self._settings = SettingsWidget()
+        self._settings.theme_changed.connect(self._on_theme_changed)
+        self._settings.gs_changed.connect(self._on_gs_changed)
+        self._stack.addWidget(self._settings)
+
+        self._about = AboutWidget()
+        self._stack.addWidget(self._about)
 
         return content
 
@@ -229,7 +236,24 @@ class MainWindow(QMainWindow):
         return bar
 
     # ------------------------------------------------------------------
-    # Slots & navigation
+    # Geometry persistence
+    # ------------------------------------------------------------------
+
+    def _restore_geometry(self) -> None:
+        geom = settings.window_geometry()
+        state = settings.window_state()
+        if geom:
+            self.restoreGeometry(geom)
+        if state:
+            self.restoreState(state)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        settings.set_window_geometry(bytes(self.saveGeometry()))
+        settings.set_window_state(bytes(self.saveState()))
+        super().closeEvent(event)
+
+    # ------------------------------------------------------------------
+    # Slots
     # ------------------------------------------------------------------
 
     @Slot(str)
@@ -252,6 +276,7 @@ class MainWindow(QMainWindow):
     def _on_connect_clicked(self) -> None:
         port = self._port_combo.currentText()
         if port and port != "No ports found":
+            settings.set_last_port(port)
             self._bridge.connect_port(port)
 
     @Slot(str)
@@ -278,3 +303,21 @@ class MainWindow(QMainWindow):
     def _on_error(self, text: str) -> None:
         self._status_bar.showMessage(f"Error: {text}", 5000)
         logger.error(text)
+
+    @Slot(str)
+    def _on_theme_changed(self, theme: str) -> None:
+        from kitsat_gs.app import load_stylesheet
+        self._app.setStyleSheet(load_stylesheet(theme))
+        logger.info(f"Theme switched to {theme}")
+
+    @Slot()
+    def _on_gs_changed(self) -> None:
+        from kitsat_gs.core.pass_predictor import GroundStation
+        gs = GroundStation(
+            lat=settings.gs_lat(),
+            lon=settings.gs_lon(),
+            alt_m=settings.gs_alt_m(),
+        )
+        self._map.set_ground_station(gs)
+        self._orbit.set_ground_station(gs)
+        logger.info(f"Ground station updated: {gs.lat}, {gs.lon}")

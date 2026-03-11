@@ -1,9 +1,10 @@
 import sys
-from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import Qt
-from loguru import logger
 from pathlib import Path
 
+from PySide6.QtWidgets import QApplication
+from loguru import logger
+
+from kitsat_gs.config import settings
 from kitsat_gs.ui.main_window import MainWindow
 
 
@@ -20,6 +21,17 @@ def _setup_logging() -> None:
     logger.info("Kitsat GS v2 starting up")
 
 
+def load_stylesheet(theme: str) -> str:
+    assets = Path(__file__).parent / "assets"
+    if theme == "light":
+        qss_path = assets / "style_light.qss"
+    else:
+        qss_path = assets / "style.qss"
+    if qss_path.exists():
+        return qss_path.read_text(encoding="utf-8")
+    return ""
+
+
 def main() -> int:
     _setup_logging()
 
@@ -28,12 +40,9 @@ def main() -> int:
     app.setOrganizationName("Arctic Astronautics")
     app.setApplicationVersion("2.0.0")
 
-    # Load dark theme stylesheet
-    qss_path = Path(__file__).parent / "assets" / "style.qss"
-    if qss_path.exists():
-        app.setStyleSheet(qss_path.read_text())
+    app.setStyleSheet(load_stylesheet(settings.theme()))
 
-    window = MainWindow()
+    window = MainWindow(app)
     window.show()
 
     return app.exec()
