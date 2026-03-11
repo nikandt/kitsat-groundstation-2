@@ -1,0 +1,203 @@
+/* Kitsat GS v2 — Dark theme */
+/* Palette: background #212121, surface #424242, accent #00da96 */
+
+QWidget {
+    background-color: #212121;
+    color: #e0e0e0;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+}
+
+/* Sidebar */
+QWidget#sidebar {
+    background-color: #1a1a1a;
+    border-right: 1px solid #333333;
+}
+
+QLabel#sidebarTitle {
+    color: #00da96;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 4px 0;
+}
+
+QLabel#versionLabel {
+    color: #555555;
+    font-size: 11px;
+}
+
+QPushButton[checkable="true"] {
+    background-color: transparent;
+    color: #aaaaaa;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 10px;
+    text-align: left;
+    font-size: 13px;
+}
+
+QPushButton[checkable="true"]:hover {
+    background-color: #2e2e2e;
+    color: #e0e0e0;
+}
+
+QPushButton[checkable="true"]:checked {
+    background-color: #2a4a3e;
+    color: #00da96;
+    border-left: 3px solid #00da96;
+}
+
+/* Connection bar */
+QWidget#connectionBar {
+    background-color: #1e1e1e;
+    border-bottom: 1px solid #333333;
+}
+
+/* General buttons */
+QPushButton {
+    background-color: #333333;
+    color: #e0e0e0;
+    border: 1px solid #444444;
+    border-radius: 4px;
+    padding: 4px 10px;
+}
+
+QPushButton:hover {
+    background-color: #3a3a3a;
+    border-color: #00da96;
+}
+
+QPushButton:pressed {
+    background-color: #2a4a3e;
+}
+
+QPushButton:disabled {
+    background-color: #2a2a2a;
+    color: #555555;
+    border-color: #333333;
+}
+
+/* ComboBox */
+QComboBox {
+    background-color: #333333;
+    color: #e0e0e0;
+    border: 1px solid #444444;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+QComboBox::drop-down {
+    border: none;
+    padding-right: 6px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #2e2e2e;
+    color: #e0e0e0;
+    selection-background-color: #2a4a3e;
+    selection-color: #00da96;
+    border: 1px solid #444444;
+}
+
+/* Terminal */
+QPlainTextEdit#terminalOutput {
+    background-color: #141414;
+    color: #e0e0e0;
+    border: 1px solid #333333;
+    border-radius: 4px;
+    selection-background-color: #2a4a3e;
+}
+
+QLineEdit#terminalInput {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+    border: 1px solid #444444;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: "Courier New", monospace;
+}
+
+QLineEdit#terminalInput:focus {
+    border-color: #00da96;
+}
+
+QLabel#terminalPrompt {
+    color: #00da96;
+    font-family: "Courier New", monospace;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+QLabel#panelHeader {
+    color: #00da96;
+    font-size: 15px;
+    font-weight: bold;
+    padding: 4px 0 8px 0;
+}
+
+/* Connection indicator */
+QLabel#connIndicatorOff {
+    color: #555555;
+    font-size: 18px;
+}
+
+QLabel#connIndicatorOn {
+    color: #00da96;
+    font-size: 18px;
+}
+
+/* Placeholder pages */
+QLabel#placeholder {
+    color: #555555;
+    font-size: 16px;
+}
+
+/* Status bar */
+QStatusBar {
+    background-color: #1a1a1a;
+    color: #888888;
+    border-top: 1px solid #333333;
+    font-size: 12px;
+}
+
+/* Scrollbars */
+QScrollBar:vertical {
+    background-color: #1e1e1e;
+    width: 8px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #444444;
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: #00da96;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+QScrollBar:horizontal {
+    background-color: #1e1e1e;
+    height: 8px;
+}
+
+QScrollBar::handle:horizontal {
+    background-color: #444444;
+    border-radius: 4px;
+    min-width: 20px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background-color: #00da96;
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0;
+}
