@@ -1,5 +1,5 @@
-"""
-MapWidget — interactive map showing satellite ground track and ground station.
+﻿"""
+MapWidget â€” interactive map showing satellite ground track and ground station.
 
 Uses folium to generate an OpenStreetMap HTML page, loaded into a
 QWebEngineView. Refreshes whenever a new ground track is computed.
@@ -12,7 +12,15 @@ from pathlib import Path
 from typing import Optional
 
 import folium
-from PySide6.QtWebEngineWidgets import QWebEngineView
+try:
+    from PySide6.QtWebEngineWidgets import QWebEngineView
+    _WEBENGINE_AVAILABLE = True
+except ImportError:
+    _WEBENGINE_AVAILABLE = False
+    logger.warning(
+        "PySide6-WebEngine not installed - map tab disabled. "
+        "Run: pip install kitsat-gs[map]"
+    )
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QGroupBox, QGridLayout,
@@ -172,7 +180,7 @@ class MapWidget(QWidget):
                                 popup=(
                                     f"Pass<br>"
                                     f"AOS: {p.aos.strftime('%H:%M:%S UTC')}<br>"
-                                    f"Max El: {p.max_elevation:.1f}°<br>"
+                                    f"Max El: {p.max_elevation:.1f}Â°<br>"
                                     f"Duration: {p.duration_s:.0f}s"
                                 ),
                             ).add_to(m)
@@ -193,3 +201,6 @@ class MapWidget(QWidget):
         self._gs_lat.setText(str(gs.lat))
         self._gs_lon.setText(str(gs.lon))
         self._render_map()
+
+
+

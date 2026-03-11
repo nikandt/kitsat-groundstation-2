@@ -1,11 +1,11 @@
-[build-system]
+﻿[build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "kitsat-gs"
 version = "2.0.0"
-description = "Kitsat Ground Station GUI — cross-platform satellite control software"
+description = "Kitsat Ground Station GUI - cross-platform satellite control software"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
@@ -16,11 +16,11 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Astronomy",
 ]
 dependencies = [
     "PySide6>=6.6",
-    "PySide6-WebEngine>=6.6",
     "kitsat>=1.2.15",
     "sgp4>=2.22",
     "pyqtgraph>=0.13",
@@ -36,6 +36,11 @@ Homepage = "https://github.com/nikandt/kitsat-groundstation-GUI-2"
 "Bug Tracker" = "https://github.com/nikandt/kitsat-groundstation-GUI-2/issues"
 
 [project.optional-dependencies]
+# Map tab requires QtWebEngine, which only supports Python 3.11-3.12 currently.
+# Install with: pip install kitsat-gs[map]
+map = [
+    "PySide6-WebEngine>=6.6",
+]
 dev = [
     "pytest>=8",
     "pytest-qt>=4",
