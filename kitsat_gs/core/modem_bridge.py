@@ -11,10 +11,11 @@ Signals emitted on the Qt main thread:
 
 from __future__ import annotations
 
+from queue import Empty
 from typing import Optional
 from loguru import logger
 
-from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 
 from kitsat.lib.modem import Modem
 
@@ -36,8 +37,11 @@ class _ReaderThread(QThread):
                 msg = self._modem.read(timeout=0.1)
                 if msg is not None:
                     self.message_received.emit(msg)
+            except Empty:
+                pass
             except Exception as exc:
-                logger.warning(f"Reader thread error: {exc}")
+                logger.warning(f"Reader thread error: {type(exc).__name__}: {exc}")
+                logger.opt(exception=True).debug("Reader thread traceback")
 
     def stop(self) -> None:
         self._running = False
@@ -64,6 +68,9 @@ class ModemBridge(QObject):
         super().__init__(parent)
         self._modem: Optional[Modem] = None
         self._reader: Optional[_ReaderThread] = None
+        self._watchdog = QTimer(self)
+        self._watchdog.setInterval(2000)
+        self._watchdog.timeout.connect(self._check_subprocess)
 
     # ------------------------------------------------------------------
     # Public API
@@ -79,6 +86,7 @@ class ModemBridge(QObject):
             port = self._modem.port or "unknown"
             logger.info(f"Connected to {port}")
             self._start_reader()
+            self._watchdog.start()
             self.connected.emit(port)
         else:
             logger.warning("Auto-connect failed — no satellite or groundstation found")
@@ -93,6 +101,7 @@ class ModemBridge(QObject):
         if result:
             logger.info(f"Connected to {port}")
             self._start_reader()
+            self._watchdog.start()
             self.connected.emit(port)
         else:
             logger.warning(f"Failed to connect to {port}")
@@ -101,6 +110,7 @@ class ModemBridge(QObject):
     @Slot()
     def disconnect(self) -> None:
         """Disconnect from the current port."""
+        self._watchdog.stop()
         if self._reader:
             self._reader.stop()
             self._reader = None
@@ -148,6 +158,24 @@ class ModemBridge(QObject):
         self._reader = _ReaderThread(self._modem, parent=self)
         self._reader.message_received.connect(self._on_message)
         self._reader.start()
+
+    @Slot()
+    def _check_subprocess(self) -> None:
+        """Watchdog: detect if the kitsat serial subprocess died unexpectedly."""
+        if self._modem is None:
+            return
+        proc = getattr(self._modem, "_serial_process", None)
+        if proc is not None and not proc.is_alive():
+            exit_code = proc.exitcode
+            logger.error(
+                f"Serial subprocess died (exit code {exit_code}). "
+                "Check that the COM port is not already in use by another program."
+            )
+            self._watchdog.stop()
+            self.error.emit(
+                f"Serial subprocess crashed (exit {exit_code}). "
+                "Disconnect and reconnect to try again."
+            )
 
     @Slot(object)
     def _on_message(self, msg: object) -> None:
