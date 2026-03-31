@@ -25,6 +25,8 @@ def load_stylesheet(theme: str) -> str:
     assets = Path(__file__).parent / "assets"
     if theme == "light":
         qss_path = assets / "style_light.qss"
+    elif theme == "aerospace":
+        qss_path = assets / "style_aerospace.qss"
     else:
         qss_path = assets / "style.qss"
     if qss_path.exists():
@@ -40,7 +42,11 @@ def main() -> int:
     app.setOrganizationName("Arctic Astronautics")
     app.setApplicationVersion("2.0.0")
 
-    app.setStyleSheet(load_stylesheet(settings.theme()))
+    # Default to aerospace theme for the best experience
+    theme = settings.theme()
+    if theme not in ("dark", "light", "aerospace"):
+        theme = "aerospace"
+    app.setStyleSheet(load_stylesheet(theme))
 
     window = MainWindow(app)
     window.show()
