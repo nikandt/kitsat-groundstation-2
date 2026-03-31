@@ -14,6 +14,7 @@ from typing import Optional
 import folium
 try:
     from PySide6.QtWebEngineWidgets import QWebEngineView
+    from PySide6.QtWebEngineCore import QWebEngineSettings
     _WEBENGINE_AVAILABLE = True
 except ImportError:
     _WEBENGINE_AVAILABLE = False
@@ -93,6 +94,10 @@ class MapWidget(QWidget):
 
         # Map view
         self._webview = QWebEngineView()
+        # Allow file:// pages to load Leaflet and tile resources from CDN/remote URLs
+        self._webview.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
+        )
         layout.addWidget(self._webview, stretch=1)
 
         # Trigger initial render

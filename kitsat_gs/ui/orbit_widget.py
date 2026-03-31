@@ -94,7 +94,7 @@ class _PolarPlot(pg.PlotWidget):
             x = 1.1 * math.sin(az_r)
             y = 1.1 * math.cos(az_r)
             t = pg.TextItem(label, anchor=(0.5, 0.5), color="#888888")
-            f = QFont()
+            f = QFont("Segoe UI", 9)
             f.setBold(True)
             t.setFont(f)
             t.setPos(x, y)

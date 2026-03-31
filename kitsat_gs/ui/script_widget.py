@@ -1,8 +1,8 @@
 """
-ScriptWidget — flight script editor and runner.
+ScriptWidget — flight script editor and runner, DSL-styled.
 
 Left: plain-text editor for Kitsat scripts.
-Right: execution log showing each command as it runs.
+Right: colour-coded execution log.
 
 The runner executes scripts in a QThread, honouring wait/wait_ms delays
 and sending satellite commands via ModemBridge.
@@ -14,19 +14,33 @@ import time
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPlainTextEdit, QPushButton, QSplitter, QGroupBox,
+    QWidget, QVBoxLayout, QHBoxLayout,
+    QPlainTextEdit, QPushButton, QSplitter, QTextEdit, QLabel,
 )
 from PySide6.QtCore import Qt, Slot, QThread, Signal, QObject
 from PySide6.QtGui import QFont
 from loguru import logger
 
-from kitsat_gs.core.script_engine import ScriptEngine, ScriptCommand
+from kitsat_gs.core.script_engine import ScriptEngine
 from kitsat_gs.core import command_catalog
 
 if TYPE_CHECKING:
     from kitsat_gs.core.modem_bridge import ModemBridge
 
+
+_C = {
+    "bg_base":     "#0a0e1a",
+    "bg_panel":    "#111827",
+    "bg_raised":   "#1e2d3d",
+    "accent_cyan": "#00d4ff",
+    "accent_blue": "#3b82f6",
+    "success":     "#10b981",
+    "warning":     "#f59e0b",
+    "error":       "#ef4444",
+    "text_primary": "#e2e8f0",
+    "text_muted":  "#64748b",
+    "border":      "#1e2d3d",
+}
 
 _EXAMPLE_SCRIPT = """\
 var count = 0
@@ -42,19 +56,60 @@ wait_ms 500
 beep 1
 """
 
+_HELP_TEXT = """\
+Kitsat Script Reference
+=======================
+
+Variables
+  var name = value        Declare a variable
+  name = value            Assign to an existing variable
+
+Control flow
+  for var < limit { }     Loop while var < limit (var auto-incremented)
+  loop { }                Infinite loop (use with care)
+  if var == val { }       Conditional block
+  if var == val { } else { }
+
+Timing
+  wait N                  Pause N seconds
+  wait_ms N               Pause N milliseconds
+
+Satellite commands
+  Any command from the catalog, e.g.:
+    ping
+    beep 3
+    imu_get_all
+    gps_get_all
+
+Functions
+  Function name(p1, p2) { }   Define a reusable block
+  name(arg1, arg2)             Call it
+
+UI commands
+  ImageFrame / MapFrame        Request specific UI frames
+
+Example
+-------
+var count = 0
+var limit = 3
+
+for count < limit {
+    ping
+    wait 1
+}
+
+beep 2
+"""
+
 
 # ---------------------------------------------------------------------------
 # Runner thread
 # ---------------------------------------------------------------------------
 
 class _ScriptRunner(QObject):
-    """
-    Runs in a QThread. Iterates ScriptEngine and emits signals for each step.
-    Supports stop().
-    """
-
-    log = Signal(str, str)      # (message, level)  level: "info"|"tx"|"error"|"system"
+    log = Signal(str, str)   # (message, level)  level: info|tx|error|system
     finished = Signal()
+    send_command = Signal(str)
 
     def __init__(self, engine: ScriptEngine, parent=None) -> None:
         super().__init__(parent)
@@ -71,7 +126,6 @@ class _ScriptRunner(QObject):
 
                 if cmd.kind == "satellite":
                     self.log.emit(f"TX › {cmd.line}", "tx")
-                    # Actual send happens via bridge signal — see ScriptWidget
 
                 elif cmd.kind in ("wait", "wait_ms"):
                     self.log.emit(f"wait {cmd.value_s:.3f}s", "info")
@@ -98,9 +152,6 @@ class _ScriptRunner(QObject):
     def stop(self) -> None:
         self._stop = True
 
-    # Signal emitted for each satellite command so the widget can forward it
-    send_command = Signal(str)
-
 
 class _RunnerThread(QThread):
     def __init__(self, runner: _ScriptRunner, parent=None):
@@ -115,7 +166,6 @@ class _RunnerThread(QThread):
 # ---------------------------------------------------------------------------
 
 class ScriptWidget(QWidget):
-    # Forward satellite commands to the modem bridge
     send_command = Signal(str)
 
     def __init__(self, bridge: "ModemBridge", parent=None) -> None:
@@ -130,60 +180,97 @@ class ScriptWidget(QWidget):
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(6)
 
-        header = QLabel("Scripts")
-        header.setObjectName("panelHeader")
-        layout.addWidget(header)
+        # Toolbar
+        toolbar = QHBoxLayout()
 
-        splitter = QSplitter(Qt.Horizontal)
-
-        # Left: editor
-        editor_box = QGroupBox("Script editor")
-        editor_layout = QVBoxLayout(editor_box)
-        self._editor = QPlainTextEdit(_EXAMPLE_SCRIPT)
-        self._editor.setObjectName("terminalOutput")
-        mono = QFont("Courier New", 11)
-        self._editor.setFont(mono)
-        editor_layout.addWidget(self._editor)
-
-        btn_row = QHBoxLayout()
         self._btn_run = QPushButton("▶  Run")
+        self._btn_run.setFixedHeight(32)
+        self._btn_run.setStyleSheet(
+            f"QPushButton {{ background:{_C['accent_cyan']}; color:{_C['bg_base']}; "
+            f"border:none; border-radius:6px; font-weight:bold; padding:0 14px; }}"
+            f"QPushButton:hover {{ background:#33deff; }}"
+        )
         self._btn_run.clicked.connect(self._on_run)
-        btn_row.addWidget(self._btn_run)
+        toolbar.addWidget(self._btn_run)
 
         self._btn_stop = QPushButton("■  Stop")
+        self._btn_stop.setFixedHeight(32)
         self._btn_stop.setEnabled(False)
+        self._btn_stop.setStyleSheet(
+            f"QPushButton {{ background:{_C['error']}; color:white; "
+            f"border:none; border-radius:6px; font-weight:bold; padding:0 14px; }}"
+            f"QPushButton:disabled {{ background:{_C['bg_raised']}; "
+            f"color:{_C['text_muted']}; }}"
+            f"QPushButton:hover:enabled {{ background:#f87171; }}"
+        )
         self._btn_stop.clicked.connect(self._on_stop)
-        btn_row.addWidget(self._btn_stop)
+        toolbar.addWidget(self._btn_stop)
 
-        self._btn_clear_editor = QPushButton("Clear")
-        self._btn_clear_editor.setFixedWidth(60)
-        self._btn_clear_editor.clicked.connect(self._editor.clear)
-        btn_row.addWidget(self._btn_clear_editor)
-        editor_layout.addLayout(btn_row)
+        toolbar.addSpacing(12)
 
-        splitter.addWidget(editor_box)
+        for label, slot in [
+            ("Load Example", self._load_example),
+            ("Help",         self._show_help),
+            ("Clear Output", self._clear_output),
+        ]:
+            btn = QPushButton(label)
+            btn.setFixedHeight(32)
+            btn.setStyleSheet(
+                f"QPushButton {{ background:{_C['bg_raised']}; color:{_C['text_primary']}; "
+                f"border:1px solid {_C['border']}; border-radius:6px; padding:0 10px; }}"
+                f"QPushButton:hover {{ background:#2a3f55; }}"
+            )
+            btn.clicked.connect(slot)
+            toolbar.addWidget(btn)
 
-        # Right: execution log
-        log_box = QGroupBox("Execution log")
-        log_layout = QVBoxLayout(log_box)
-        self._log = QPlainTextEdit()
-        self._log.setReadOnly(True)
-        self._log.setObjectName("terminalOutput")
-        self._log.setFont(mono)
-        self._log.setMaximumBlockCount(1000)
-        log_layout.addWidget(self._log)
+        toolbar.addStretch()
 
-        self._btn_clear_log = QPushButton("Clear log")
-        self._btn_clear_log.setFixedWidth(80)
-        self._btn_clear_log.clicked.connect(self._log.clear)
-        log_layout.addWidget(self._btn_clear_log, alignment=Qt.AlignRight)
+        self._status_label = QLabel("Idle")
+        self._status_label.setStyleSheet(f"color:{_C['text_muted']}; font-size:9pt;")
+        toolbar.addWidget(self._status_label)
+        layout.addLayout(toolbar)
 
-        splitter.addWidget(log_box)
+        # Editor / output splitter
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        self._editor = QPlainTextEdit(_EXAMPLE_SCRIPT)
+        self._editor.setStyleSheet(
+            f"background:{_C['bg_panel']}; color:{_C['text_primary']}; "
+            f"font-family:Consolas; font-size:10pt; "
+            f"border:1px solid {_C['border']}; border-radius:6px;"
+        )
+        self._editor.setFont(QFont("Consolas", 10))
+        self._editor.setMinimumWidth(300)
+        splitter.addWidget(self._editor)
+
+        self._output = QTextEdit()
+        self._output.setReadOnly(True)
+        self._output.setStyleSheet(
+            f"background:{_C['bg_panel']}; color:{_C['text_primary']}; "
+            f"font-family:Consolas; font-size:10pt; "
+            f"border:1px solid {_C['border']}; border-radius:6px;"
+        )
+        splitter.addWidget(self._output)
         splitter.setSizes([500, 400])
+
         layout.addWidget(splitter, stretch=1)
 
     # ------------------------------------------------------------------
-    # Slots
+    # Toolbar actions
+    # ------------------------------------------------------------------
+
+    def _load_example(self) -> None:
+        self._editor.setPlainText(_EXAMPLE_SCRIPT)
+
+    def _show_help(self) -> None:
+        self._output.clear()
+        self._output.setPlainText(_HELP_TEXT)
+
+    def _clear_output(self) -> None:
+        self._output.clear()
+
+    # ------------------------------------------------------------------
+    # Run / Stop
     # ------------------------------------------------------------------
 
     @Slot()
@@ -199,11 +286,13 @@ class ScriptWidget(QWidget):
             self._append_log(f"Parse error: {exc}", "error")
             return
 
+        self._output.clear()
+        col = _C['text_muted']
+        self._output.append(f"<span style='color:{col}'>--- Script started ---</span>")
+
         self._runner = _ScriptRunner(engine)
         self._runner.log.connect(self._append_log)
         self._runner.finished.connect(self._on_finished)
-
-        # Forward satellite commands to the bridge
         self._runner.log.connect(self._maybe_send)
 
         self._thread = _RunnerThread(self._runner)
@@ -211,7 +300,8 @@ class ScriptWidget(QWidget):
 
         self._btn_run.setEnabled(False)
         self._btn_stop.setEnabled(True)
-        self._append_log("Script started.", "system")
+        self._status_label.setText("Running…")
+        self._status_label.setStyleSheet(f"color:{_C['warning']}; font-size:9pt;")
 
     @Slot()
     def _on_stop(self) -> None:
@@ -222,25 +312,31 @@ class ScriptWidget(QWidget):
     def _on_finished(self) -> None:
         self._btn_run.setEnabled(True)
         self._btn_stop.setEnabled(False)
+        self._status_label.setText("Completed")
+        self._status_label.setStyleSheet(f"color:{_C['success']}; font-size:9pt;")
         if self._thread:
             self._thread.quit()
             self._thread.wait(2000)
+        self._runner = None
+
+    # ------------------------------------------------------------------
+    # Output helpers
+    # ------------------------------------------------------------------
 
     @Slot(str, str)
     def _append_log(self, message: str, level: str) -> None:
         colors = {
-            "tx":     "#00da96",
-            "error":  "#ff5555",
-            "system": "#888888",
-            "info":   "#e0e0e0",
+            "tx":     _C["success"],
+            "error":  _C["error"],
+            "system": _C["text_muted"],
+            "info":   _C["text_primary"],
         }
-        color = colors.get(level, "#e0e0e0")
-        self._log.appendHtml(f'<span style="color:{color}">{message}</span>')
-        self._log.ensureCursorVisible()
+        color = colors.get(level, _C["text_primary"])
+        self._output.append(f"<span style='color:{color}'>{message}</span>")
+        sb = self._output.verticalScrollBar()
+        sb.setValue(sb.maximum())
 
     @Slot(str, str)
     def _maybe_send(self, message: str, level: str) -> None:
-        """If the log message is a TX command, forward it to the bridge."""
         if level == "tx" and message.startswith("TX › "):
-            cmd = message[5:]
-            self._bridge.send_command(cmd)
+            self._bridge.send_command(message[5:])

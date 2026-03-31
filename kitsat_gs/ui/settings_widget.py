@@ -121,6 +121,7 @@ class SettingsWidget(QWidget):
         ap_box = QGroupBox("Appearance")
         ap_layout = QFormLayout(ap_box)
         self._theme = QComboBox()
+        self._theme.addItem("Aerospace (Dark)", "aerospace")
         self._theme.addItem("Dark", "dark")
         self._theme.addItem("Light", "light")
         ap_layout.addRow("Theme:", self._theme)
