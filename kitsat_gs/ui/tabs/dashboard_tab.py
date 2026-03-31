@@ -248,13 +248,12 @@ class DashboardTab(QWidget):
             grid.addWidget(val, r, 1)
             return val
 
-        self._lbl_qw = row("Q_w", 0)
-        self._lbl_qx = row("Q_x", 1)
-        self._lbl_qy = row("Q_y", 2)
-        self._lbl_qz = row("Q_z", 3)
-        self._lbl_gx = row("ω_x (°/s)", 4)
-        self._lbl_gy = row("ω_y (°/s)", 5)
-        self._lbl_gz = row("ω_z (°/s)", 6)
+        self._lbl_mx = row("Mag X (Gs)", 0)
+        self._lbl_my = row("Mag Y (Gs)", 1)
+        self._lbl_mz = row("Mag Z (Gs)", 2)
+        self._lbl_gx = row("ω_x (°/s)", 3)
+        self._lbl_gy = row("ω_y (°/s)", 4)
+        self._lbl_gz = row("ω_z (°/s)", 5)
 
         layout.addLayout(grid)
         layout.addStretch()
@@ -285,6 +284,13 @@ class DashboardTab(QWidget):
         self._lbl_ts  = row("Timestamp", 3)
 
         layout.addLayout(grid)
+
+        self._lbl_nofix = QLabel("No GPS fix — send gps_get_all and ensure open sky view")
+        self._lbl_nofix.setWordWrap(True)
+        self._lbl_nofix.setStyleSheet(
+            f"color:{_C['warning']}; font-size:8pt; padding-top:4px;"
+        )
+        layout.addWidget(self._lbl_nofix)
         layout.addStretch()
         return panel
 
@@ -339,19 +345,25 @@ class DashboardTab(QWidget):
             f"color:{rssi_color}; font-family:Consolas; font-size:10pt;"
         )
 
-        # Attitude
-        self._lbl_qw.setText(f"{frame.attitude_w:.4f}")
-        self._lbl_qx.setText(f"{frame.attitude_x:.4f}")
-        self._lbl_qy.setText(f"{frame.attitude_y:.4f}")
-        self._lbl_qz.setText(f"{frame.attitude_z:.4f}")
+        # Attitude / IMU
+        self._lbl_mx.setText(f"{frame.mag_x:+.2f}")
+        self._lbl_my.setText(f"{frame.mag_y:+.2f}")
+        self._lbl_mz.setText(f"{frame.mag_z:+.2f}")
         self._lbl_gx.setText(f"{frame.gyro_x:+.3f}")
         self._lbl_gy.setText(f"{frame.gyro_y:+.3f}")
         self._lbl_gz.setText(f"{frame.gyro_z:+.3f}")
 
         # GNSS
-        self._lbl_lat.setText(f"{frame.latitude:.4f}°")
-        self._lbl_lon.setText(f"{frame.longitude:.4f}°")
-        self._lbl_alt.setText(f"{frame.altitude_km:.1f} km")
+        gps_fix = not (frame.latitude == 0.0 and frame.longitude == 0.0)
+        self._lbl_nofix.setVisible(not gps_fix)
+        if gps_fix:
+            self._lbl_lat.setText(f"{frame.latitude:.5f}°")
+            self._lbl_lon.setText(f"{frame.longitude:.5f}°")
+            self._lbl_alt.setText(f"{frame.altitude_km * 1000:.1f} m")
+        else:
+            self._lbl_lat.setText("No fix")
+            self._lbl_lon.setText("—")
+            self._lbl_alt.setText("—")
         self._lbl_ts.setText(frame.timestamp.strftime("%H:%M:%S"))
 
         # Gauges

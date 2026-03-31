@@ -35,6 +35,11 @@ class TelemetryFrame:
     attitude_y: float = 0.0
     attitude_z: float = 0.0
 
+    # Magnetometer (Gauss)
+    mag_x: float = 0.0
+    mag_y: float = 0.0
+    mag_z: float = 0.0
+
     # Gyro rates (deg/s)
     gyro_x: float = 0.0
     gyro_y: float = 0.0

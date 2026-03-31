@@ -152,20 +152,28 @@ class PacketDispatcher(QObject):
                     )
             return True
 
-        # gps_get_all (3, 6): 5 floats — lat, lon, alt_m, vel_knots, time_hhmmss
+        # gps_get_all (3, 6): ASCII CSV — lat, lon, alt_m, vel, time_hhmmss
+        # The satellite sends a pre-formatted ASCII string (UTF-8 decode succeeds),
+        # so binary unpack would give garbage. Parse as CSV directly.
         if origin == 3 and cmd_id == 6:
             try:
-                floats = self._unpack_floats(data, 5)
+                if isinstance(data, str):
+                    parts = [float(x.strip()) for x in data.split(",")]
+                else:
+                    parts = self._unpack_floats(data, 5)
+                if len(parts) < 4:
+                    raise ValueError(f"Expected ≥4 GPS values, got {len(parts)}")
             except Exception as exc:
                 logger.warning(f"PacketDispatcher: gps_get_all decode error: {exc}")
                 return True
-            if floats[0] == -1.0 or floats[1] == -1.0:
+            lat, lon = parts[0], parts[1]
+            if lat == -1.0 or lon == -1.0 or (lat == 0.0 and lon == 0.0):
                 logger.debug("PacketDispatcher: GPS no fix")
                 return True
             for sub_cmd, vals in [
-                (2, [floats[0], floats[1]]),   # lat/lon
-                (4, [floats[2]]),              # altitude (m)
-                (3, [floats[3]]),              # velocity (knots → m/s via catalog)
+                (2, [lat, lon]),       # lat/lon (deg)
+                (4, [parts[2]]),       # altitude (m)
+                (3, [parts[3]]),       # velocity (knots → m/s via catalog multiplier)
             ]:
                 hk = housekeeping_catalog.by_command(3, sub_cmd)
                 if hk:

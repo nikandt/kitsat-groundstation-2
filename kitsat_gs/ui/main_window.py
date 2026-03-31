@@ -91,6 +91,7 @@ class MainWindow(QMainWindow):
         self._orbit_sim.start()
 
         self._build_ui()
+        self._navigate("Dashboard")
         self._restore_geometry()
         self._refresh_ports()
         self._setup_shortcuts()
@@ -180,7 +181,9 @@ class MainWindow(QMainWindow):
         version.setObjectName("versionLabel")
         layout.addWidget(version)
 
-        self._btn_terminal.setChecked(True)
+        # Start on Dashboard
+        for btn in self._nav_buttons:
+            btn.setChecked(btn.text() == "Dashboard")
         return sidebar
 
     def _build_content(self) -> QWidget:
@@ -457,9 +460,9 @@ class MainWindow(QMainWindow):
             v = _get(k)
             return v if v is not None else default
 
-        # Voltage → battery percent (2S LiPo: 6.0 V = 0 %, 8.4 V = 100 %)
+        # Voltage → battery percent (1S LiPo: 3.0 V = 0 %, 4.2 V = 100 %)
         batt_v = _get_or("Power/Battery Voltage", 0.0)
-        batt_pct = max(0.0, min(100.0, (batt_v - 6.0) / 2.4 * 100.0)) if batt_v else 0.0
+        batt_pct = max(0.0, min(100.0, (batt_v - 3.0) / 1.2 * 100.0)) if batt_v else 0.0
 
         solar_x = _get_or("Power/Solar Panel Current/X", 0.0)
         solar_y = _get_or("Power/Solar Panel Current/Y", 0.0)
@@ -481,6 +484,9 @@ class MainWindow(QMainWindow):
             battery_voltage=batt_v,
             solar_current_ma=solar_ma,
             power_consumption_mw=power_mw,
+            mag_x=_get_or("Attitude/Magnetometer/x", 0.0),
+            mag_y=_get_or("Attitude/Magnetometer/y", 0.0),
+            mag_z=_get_or("Attitude/Magnetometer/z", 0.0),
             gyro_x=_get_or("Attitude/Gyroscope/x", 0.0),
             gyro_y=_get_or("Attitude/Gyroscope/y", 0.0),
             gyro_z=_get_or("Attitude/Gyroscope/z", 0.0),
