@@ -88,8 +88,8 @@ def set_last_tle(tle_text: str) -> None:
 # ---------------------------------------------------------------------------
 
 def theme() -> str:
-    """Returns "dark" or "light"."""
-    return _s().value("appearance/theme", "dark")
+    """Returns "dark", "light", or "aerospace"."""
+    return _s().value("appearance/theme", "aerospace")
 
 def set_theme(t: str) -> None:
     _s().setValue("appearance/theme", t)

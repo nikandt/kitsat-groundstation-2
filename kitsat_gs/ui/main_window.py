@@ -45,7 +45,6 @@ from kitsat_gs.ui.about_widget import AboutWidget
 
 # New tabs from KitsatOperations import
 from kitsat_gs.ui.tabs.dashboard_tab import DashboardTab
-from kitsat_gs.ui.tabs.scripting_tab import ScriptingTab
 
 
 class _SidebarButton(QPushButton):
@@ -159,7 +158,6 @@ class MainWindow(QMainWindow):
 
         # New tabs from KitsatOperations
         add_nav("Dashboard")
-        add_nav("DSL Scripts")
 
         add_nav("Settings")
         add_nav("About")
@@ -217,9 +215,6 @@ class MainWindow(QMainWindow):
         self._dashboard = DashboardTab()
         self._stack.addWidget(self._dashboard)
 
-        self._dsl_scripts = ScriptingTab()
-        self._stack.addWidget(self._dsl_scripts)
-
         # ── Settings + About
         self._settings = SettingsWidget()
         self._settings.theme_changed.connect(self._on_theme_changed)
@@ -245,23 +240,19 @@ class MainWindow(QMainWindow):
         layout.addWidget(self._port_combo)
 
         self._btn_refresh = QPushButton("Refresh")
-        self._btn_refresh.setFixedWidth(70)
         self._btn_refresh.clicked.connect(self._refresh_ports)
         layout.addWidget(self._btn_refresh)
 
         self._btn_connect = QPushButton("Connect")
-        self._btn_connect.setFixedWidth(80)
         self._btn_connect.clicked.connect(self._on_connect_clicked)
         layout.addWidget(self._btn_connect)
 
         self._btn_auto = QPushButton("Auto")
-        self._btn_auto.setFixedWidth(60)
         self._btn_auto.setToolTip("Auto-detect satellite or groundstation")
         self._btn_auto.clicked.connect(self._bridge.connect_auto)
         layout.addWidget(self._btn_auto)
 
         self._btn_disconnect = QPushButton("Disconnect")
-        self._btn_disconnect.setFixedWidth(90)
         self._btn_disconnect.setEnabled(False)
         self._btn_disconnect.clicked.connect(self._bridge.disconnect)
         layout.addWidget(self._btn_disconnect)
@@ -274,7 +265,7 @@ class MainWindow(QMainWindow):
         # Mock mode toggle (new)
         layout.addSpacing(16)
         self._btn_mock = QPushButton("Mock: OFF")
-        self._btn_mock.setFixedWidth(100)
+        self._btn_mock.setMinimumWidth(90)
         self._btn_mock.setCheckable(True)
         self._btn_mock.setToolTip(
             "Start/stop the mock satellite provider (generates simulated telemetry)"
@@ -297,8 +288,8 @@ class MainWindow(QMainWindow):
     def _setup_shortcuts(self) -> None:
         """Alt+1…Alt+N jump to sidebar pages."""
         shortcuts = [
-            "Terminal", "Dashboard", "DSL Scripts",
-            "Housekeeping", "Cmd Builder", "Map", "Orbit", "Images",
+            "Terminal", "Dashboard",
+            "Housekeeping", "Cmd Builder", "Map", "Orbit", "Images", "Scripts",
         ]
         for i, page in enumerate(shortcuts, start=1):
             if i > 9:
