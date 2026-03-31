@@ -27,6 +27,7 @@ from kitsat_gs.core.telemetry_store import TelemetryStore
 from kitsat_gs.core.packet_dispatcher import PacketDispatcher
 from kitsat_gs.core.image_manager import ImageManager
 from kitsat_gs.core.events import get_event_bus
+from kitsat_gs.core.models import TelemetryFrame
 from kitsat_gs.providers.mock import MockProvider
 from kitsat_gs.orbit.simulator import OrbitSimulator
 from kitsat_gs.orbit.ground_station import GroundStation
@@ -80,6 +81,8 @@ class MainWindow(QMainWindow):
         # ── Event bus + new providers
         self._bus = get_event_bus()
         self._mock_provider = MockProvider(parent=self)
+        self._hw_packet_count = 0
+        self._store.updated.connect(self._on_store_updated)
         self._mock_active = False
 
         # ── Orbit simulator (feeds EventBus orbit_updated)
@@ -126,7 +129,7 @@ class MainWindow(QMainWindow):
 
         title = QLabel("KITSAT GS")
         title.setAlignment(Qt.AlignCenter)
-        font = QFont()
+        font = QFont("Segoe UI", 9)
         font.setBold(True)
         font.setLetterSpacing(QFont.AbsoluteSpacing, 2)
         title.setFont(font)
@@ -355,12 +358,16 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def _refresh_ports(self) -> None:
+        current = self._port_combo.currentText()
         ports = self._bridge.list_ports()
         self._port_combo.clear()
         for p in ports:
             self._port_combo.addItem(p)
         if not ports:
             self._port_combo.addItem("No ports found")
+        idx = self._port_combo.findText(current)
+        if idx >= 0:
+            self._port_combo.setCurrentIndex(idx)
 
     @Slot()
     def _on_connect_clicked(self) -> None:
@@ -380,6 +387,9 @@ class MainWindow(QMainWindow):
         self._btn_connect.setEnabled(False)
         self._btn_auto.setEnabled(False)
         self._btn_disconnect.setEnabled(True)
+        self._hw_packet_count = 0
+        self._bus.telemetry_request.connect(self._bridge.send_command)
+        self._bus.connection_changed.emit("CONNECTED")
 
     @Slot()
     def _on_disconnected(self) -> None:
@@ -392,6 +402,11 @@ class MainWindow(QMainWindow):
         self._btn_connect.setEnabled(True)
         self._btn_auto.setEnabled(True)
         self._btn_disconnect.setEnabled(False)
+        try:
+            self._bus.telemetry_request.disconnect(self._bridge.send_command)
+        except RuntimeError:
+            pass
+        self._bus.connection_changed.emit("DISCONNECTED")
 
     @Slot(str)
     def _on_error(self, text: str) -> None:
@@ -421,6 +436,60 @@ class MainWindow(QMainWindow):
             self._btn_mock.setStyleSheet("")
             self._status_bar.showMessage("Mock mode stopped")
             logger.info("Mock provider stopped")
+
+    # ------------------------------------------------------------------
+    # Slots — hardware telemetry → EventBus bridge
+    # ------------------------------------------------------------------
+
+    @Slot(str)
+    def _on_store_updated(self, key: str) -> None:
+        """Bridge TelemetryStore → TelemetryFrame → EventBus for Dashboard."""
+        if self._mock_active:
+            return  # mock provider owns the bus when active
+
+        self._hw_packet_count += 1
+
+        def _get(k: str) -> float | None:
+            s = self._store.latest(k)
+            return s.value if s is not None else None
+
+        def _get_or(k: str, default: float) -> float:
+            v = _get(k)
+            return v if v is not None else default
+
+        # Voltage → battery percent (2S LiPo: 6.0 V = 0 %, 8.4 V = 100 %)
+        batt_v = _get_or("Power/Battery Voltage", 0.0)
+        batt_pct = max(0.0, min(100.0, (batt_v - 6.0) / 2.4 * 100.0)) if batt_v else 0.0
+
+        solar_x = _get_or("Power/Solar Panel Current/X", 0.0)
+        solar_y = _get_or("Power/Solar Panel Current/Y", 0.0)
+        solar_ma = solar_x + solar_y
+
+        sol_vxp = _get_or("Power/Solar Panel Voltage/X+", 0.0)
+        sol_vxm = _get_or("Power/Solar Panel Voltage/X-", 0.0)
+        sol_vym = _get_or("Power/Solar Panel Voltage/Y-", 0.0)
+        sol_vyp = _get_or("Power/Solar Panel Voltage/Y+", 0.0)
+        avg_sol_v = (sol_vxp + sol_vxm + sol_vym + sol_vyp) / 4.0
+        power_mw = avg_sol_v * solar_ma
+
+        alt_m = _get_or("GPS/Altitude", 0.0)
+
+        frame = TelemetryFrame(
+            temp_obc=_get_or("Environment/Temperature", 25.0),
+            temp_battery=_get_or("Environment/Temperature", 22.0),
+            battery_percent=batt_pct,
+            battery_voltage=batt_v,
+            solar_current_ma=solar_ma,
+            power_consumption_mw=power_mw,
+            gyro_x=_get_or("Attitude/Gyroscope/x", 0.0),
+            gyro_y=_get_or("Attitude/Gyroscope/y", 0.0),
+            gyro_z=_get_or("Attitude/Gyroscope/z", 0.0),
+            latitude=_get_or("GPS/Coordinates/Lat", 0.0),
+            longitude=_get_or("GPS/Coordinates/Lon", 0.0),
+            altitude_km=alt_m / 1000.0,
+            packet_count=self._hw_packet_count,
+        )
+        self._bus.telemetry_updated.emit(frame)
 
     # ------------------------------------------------------------------
     # Slots — orbit simulator

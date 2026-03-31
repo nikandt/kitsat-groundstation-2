@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from collections import deque
 
+from datetime import datetime
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLabel, QFrame, QScrollArea,
+    QLabel, QFrame, QScrollArea, QPushButton,
 )
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, QTimer
 
 try:
     import pyqtgraph as pg
@@ -93,9 +95,19 @@ class MiniChart(QWidget):
 class DashboardTab(QWidget):
     """Main telemetry dashboard with gauges, charts, attitude, and GNSS."""
 
+    _POLL_COMMANDS = ["imu_get_all", "gps_get_all", "eps_measure", "env_get_temp"]
+    _POLL_INTERVAL_MS = 5000
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._bus = get_event_bus()
+        self._poll_active = False
+        self._connected = False
+
+        self._poll_timer = QTimer(self)
+        self._poll_timer.setInterval(self._POLL_INTERVAL_MS)
+        self._poll_timer.timeout.connect(self._on_poll_tick)
+
         self._setup_ui()
         self._bus.telemetry_updated.connect(self._on_telemetry)
         self._bus.connection_changed.connect(self._on_connection)
@@ -116,6 +128,42 @@ class DashboardTab(QWidget):
         main = QVBoxLayout(content)
         main.setContentsMargins(12, 12, 12, 12)
         main.setSpacing(12)
+
+        # Hint bar — hidden once first telemetry arrives
+        self._hint = QLabel(
+            "Waiting for telemetry — send housekeeping commands "
+            "(e.g. imu_get_all, eps_get_batt_volt, gps_get_lat_lon) "
+            "or enable Mock mode to see live data."
+        )
+        self._hint.setWordWrap(True)
+        self._hint.setStyleSheet(
+            f"color:{_C['warning']}; font-size:9pt; "
+            f"background:{_C['bg_raised']}; border-radius:4px; padding:6px;"
+        )
+        main.addWidget(self._hint)
+
+        # Poll controls bar
+        poll_bar = QHBoxLayout()
+        self._btn_poll = QPushButton("Auto-poll: OFF")
+        self._btn_poll.setCheckable(True)
+        self._btn_poll.setFixedWidth(130)
+        self._btn_poll.setEnabled(False)
+        self._btn_poll.clicked.connect(self._toggle_poll)
+        poll_bar.addWidget(self._btn_poll)
+
+        self._btn_poll_now = QPushButton("Poll Now")
+        self._btn_poll_now.setFixedWidth(80)
+        self._btn_poll_now.setEnabled(False)
+        self._btn_poll_now.clicked.connect(self._on_poll_tick)
+        poll_bar.addWidget(self._btn_poll_now)
+
+        self._lbl_last_poll = QLabel("Last poll: —")
+        self._lbl_last_poll.setStyleSheet(
+            f"color:{_C['text_muted']}; font-size:9pt;"
+        )
+        poll_bar.addWidget(self._lbl_last_poll)
+        poll_bar.addStretch()
+        main.addLayout(poll_bar)
 
         # Row 1: status + attitude + GNSS
         row1 = QHBoxLayout()
@@ -274,6 +322,7 @@ class DashboardTab(QWidget):
 
     @Slot(object)
     def _on_telemetry(self, frame: TelemetryFrame) -> None:
+        self._hint.setVisible(False)
         # Status panel
         mode_color = _C["error"] if frame.mode == "fault" else _C["success"]
         self._lbl_mode.setText(frame.mode.upper())
@@ -321,6 +370,7 @@ class DashboardTab(QWidget):
 
     @Slot(str)
     def _on_connection(self, state: str) -> None:
+        self._connected = (state == "CONNECTED")
         self._status_led.set_state(state)
         colors = {
             "CONNECTED":    (_C["success"], "CONNECTED"),
@@ -331,4 +381,42 @@ class DashboardTab(QWidget):
         self._conn_text.setText(text)
         self._conn_text.setStyleSheet(
             f"color:{color}; font-weight:bold; font-size:9pt;"
+        )
+        self._btn_poll.setEnabled(self._connected)
+        self._btn_poll_now.setEnabled(self._connected)
+        if not self._connected and self._poll_active:
+            self._stop_poll()
+
+    @Slot()
+    def _toggle_poll(self) -> None:
+        if self._poll_active:
+            self._stop_poll()
+        else:
+            self._start_poll()
+
+    def _start_poll(self) -> None:
+        self._poll_active = True
+        self._btn_poll.setText("Auto-poll: ON")
+        self._btn_poll.setStyleSheet(
+            "QPushButton { background:#10b981; color:#0a0e1a; "
+            "border:none; border-radius:4px; font-weight:bold; }"
+        )
+        self._poll_timer.start()
+        self._on_poll_tick()   # fire immediately
+
+    def _stop_poll(self) -> None:
+        self._poll_active = False
+        self._poll_timer.stop()
+        self._btn_poll.setChecked(False)
+        self._btn_poll.setText("Auto-poll: OFF")
+        self._btn_poll.setStyleSheet("")
+
+    @Slot()
+    def _on_poll_tick(self) -> None:
+        if not self._connected:
+            return
+        for cmd in self._POLL_COMMANDS:
+            self._bus.telemetry_request.emit(cmd)
+        self._lbl_last_poll.setText(
+            f"Last poll: {datetime.now().strftime('%H:%M:%S')}"
         )

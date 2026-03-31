@@ -27,6 +27,9 @@ class EventBus(QObject):
     # Log / script output
     log_message = Signal(str)
 
+    # Telemetry polling — any tab can request a modem command be sent
+    telemetry_request = Signal(str)   # command string, e.g. "imu_get_all"
+
 
 _bus: "EventBus | None" = None
 
