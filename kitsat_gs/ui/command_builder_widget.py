@@ -240,20 +240,25 @@ class CommandBuilderWidget(QWidget):
 
         if packet is None:
             self._preview.append(
-                f"<span style='color:{_C[\"warning\"]}'>(invalid parameters)</span>"
+                f"<span style='color:{_C['warning']}'>(invalid parameters)</span>"
             )
             return
 
         hex_str = " ".join(f"{b:02X}" for b in packet)
         fnv = int.from_bytes(packet[-4:], "little")
+        col_muted = _C['text_muted']
+        col_cyan = _C['accent_cyan']
+        col_primary = _C['text_primary']
+        col_success = _C['success']
+        param_part = (' ' + params.strip()) if params.strip() else ''
         self._preview.append(
-            f"<span style='color:{_C[\"text_muted\"]}'>"
-            f"<b style='color:{_C[\"accent_cyan\"]}'>{name}</b>"
-            f"{(' ' + params.strip()) if params.strip() else ''}<br>"
+            f"<span style='color:{col_muted}'>"
+            f"<b style='color:{col_cyan}'>{name}</b>"
+            f"{param_part}<br>"
             f"Bytes ({len(packet)}): </span>"
-            f"<span style='color:{_C[\"text_primary\"]}'>{hex_str}</span><br>"
-            f"<span style='color:{_C[\"text_muted\"]}'>FNV-1a: </span>"
-            f"<span style='color:{_C[\"success\"]}'>0x{fnv:08X}</span>"
+            f"<span style='color:{col_primary}'>{hex_str}</span><br>"
+            f"<span style='color:{col_muted}'>FNV-1a: </span>"
+            f"<span style='color:{col_success}'>0x{fnv:08X}</span>"
         )
         sb = self._preview.verticalScrollBar()
         sb.setValue(sb.maximum())
