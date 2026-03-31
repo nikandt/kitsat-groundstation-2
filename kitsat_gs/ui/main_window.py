@@ -45,9 +45,7 @@ from kitsat_gs.ui.about_widget import AboutWidget
 
 # New tabs from KitsatOperations import
 from kitsat_gs.ui.tabs.dashboard_tab import DashboardTab
-from kitsat_gs.ui.tabs.command_tab import CommandTab
 from kitsat_gs.ui.tabs.scripting_tab import ScriptingTab
-from kitsat_gs.ui.tabs.repl_tab import REPLTab
 
 
 class _SidebarButton(QPushButton):
@@ -159,17 +157,9 @@ class MainWindow(QMainWindow):
         add_nav("Scripts")
         add_nav("Firmware")
 
-        # Separator label
-        sep = QLabel("── New ──")
-        sep.setAlignment(Qt.AlignCenter)
-        sep.setStyleSheet("color: #64748b; font-size: 9pt;")
-        layout.addWidget(sep)
-
         # New tabs from KitsatOperations
         add_nav("Dashboard")
-        add_nav("Commands")
         add_nav("DSL Scripts")
-        add_nav("REPL")
 
         add_nav("Settings")
         add_nav("About")
@@ -227,14 +217,8 @@ class MainWindow(QMainWindow):
         self._dashboard = DashboardTab()
         self._stack.addWidget(self._dashboard)
 
-        self._commands = CommandTab(provider=self._mock_provider)
-        self._stack.addWidget(self._commands)
-
         self._dsl_scripts = ScriptingTab()
         self._stack.addWidget(self._dsl_scripts)
-
-        self._repl = REPLTab()
-        self._stack.addWidget(self._repl)
 
         # ── Settings + About
         self._settings = SettingsWidget()
@@ -313,8 +297,8 @@ class MainWindow(QMainWindow):
     def _setup_shortcuts(self) -> None:
         """Alt+1…Alt+N jump to sidebar pages."""
         shortcuts = [
-            "Terminal", "Dashboard", "Commands", "DSL Scripts", "REPL",
-            "Housekeeping", "Map", "Orbit", "Images",
+            "Terminal", "Dashboard", "DSL Scripts",
+            "Housekeeping", "Cmd Builder", "Map", "Orbit", "Images",
         ]
         for i, page in enumerate(shortcuts, start=1):
             if i > 9:
