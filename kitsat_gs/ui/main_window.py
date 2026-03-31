@@ -12,13 +12,15 @@ New:      Dashboard + Commands + DSL Scripts + REPL  (KitsatOperations import)
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QPushButton, QStackedWidget, QLabel, QStatusBar,
     QComboBox, QApplication,
 )
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtGui import QFont, QCloseEvent, QKeySequence, QShortcut
+from PySide6.QtGui import QFont, QCloseEvent, QKeySequence, QShortcut, QPixmap
 from loguru import logger
 
 from kitsat_gs.config import settings
@@ -125,13 +127,21 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(4, 12, 4, 12)
         layout.setSpacing(4)
 
-        title = QLabel("KITSAT GS")
+        logo_path = str(Path(__file__).parent.parent.parent / "logo.png")
+        logo_pixmap = QPixmap(logo_path)
+        title = QLabel()
         title.setAlignment(Qt.AlignCenter)
-        font = QFont("Segoe UI", 9)
-        font.setBold(True)
-        font.setLetterSpacing(QFont.AbsoluteSpacing, 2)
-        title.setFont(font)
         title.setObjectName("sidebarTitle")
+        if not logo_pixmap.isNull():
+            title.setPixmap(
+                logo_pixmap.scaledToWidth(128, Qt.TransformationMode.SmoothTransformation)
+            )
+        else:
+            title.setText("KITSAT GS")
+            font = QFont("Segoe UI", 9)
+            font.setBold(True)
+            font.setLetterSpacing(QFont.AbsoluteSpacing, 2)
+            title.setFont(font)
         layout.addWidget(title)
         layout.addSpacing(8)
 
