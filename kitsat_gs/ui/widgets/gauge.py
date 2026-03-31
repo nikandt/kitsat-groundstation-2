@@ -40,7 +40,8 @@ class CircularGauge(QWidget):
         self._error = error_val
         self._value = min_val
         self._size = size
-        self.setFixedSize(size, size)
+        self._label_area = 18          # pixels below the arc reserved for label
+        self.setFixedSize(size, size + self._label_area)
 
     def set_value(self, value: float) -> None:
         self._value = max(self._min, min(self._max, value))
@@ -55,9 +56,10 @@ class CircularGauge(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         w, h = self.width(), self.height()
-        cx, cy = w / 2, h / 2
+        arc_h = h - self._label_area          # height available for the arc
+        cx, cy = w / 2, arc_h / 2
         margin = 10
-        r = min(w, h) / 2 - margin
+        r = min(w, arc_h) / 2 - margin
         rect = QRectF(cx - r, cy - r, r * 2, r * 2)
 
         # Background arc track
@@ -106,12 +108,13 @@ class CircularGauge(QWidget):
         utw = ufm.horizontalAdvance(self._unit)
         painter.drawText(QPointF(cx - utw / 2, cy + th * 1.1), self._unit)
 
-        # Label text (bottom)
+        # Label text — drawn below the arc circle, in the reserved label area
         label_font = QFont("Segoe UI", max(7, self._size // 13))
         painter.setFont(label_font)
         painter.setPen(QColor(_C["text_muted"]))
         lfm = QFontMetrics(label_font)
         ltw = lfm.horizontalAdvance(self._label)
-        painter.drawText(QPointF(cx - ltw / 2, cy + r - 2), self._label)
+        label_y = arc_h + lfm.ascent() + 2     # baseline just inside label area
+        painter.drawText(QPointF(cx - ltw / 2, label_y), self._label)
 
         painter.end()

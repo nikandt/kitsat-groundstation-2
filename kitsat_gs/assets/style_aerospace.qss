@@ -62,6 +62,16 @@ QWidget#connectionBar {
     border-bottom: 1px solid #1e2d3d;
 }
 
+QWidget#connectionBar QPushButton {
+    padding: 3px 8px;
+    font-size: 9pt;
+}
+
+QWidget#connectionBar QComboBox {
+    padding: 2px 6px;
+    font-size: 9pt;
+}
+
 /* ── Content area ────────────────────────────────────────────── */
 QWidget#content {
     background-color: #0a0e1a;
